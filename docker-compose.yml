@@ -1,0 +1,13 @@
+# Starts PostgreSQL (schema auto-applied on first boot) and MongoDB locally.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: beijing_air
+    ports: ["5432:5432"]
+    volumes:
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]

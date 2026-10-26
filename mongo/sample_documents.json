@@ -1,0 +1,24 @@
+[
+  {
+    "timestamp": {"$date": "2010-01-01T00:00:00Z"},
+    "calendar": {"year": 2010, "month": 1, "day": 1, "hour": 0, "day_of_week": 4},
+    "air_quality": {"station": "US Embassy Beijing", "pm25": null},
+    "weather": {
+      "station": "Beijing Capital International Airport",
+      "dewp": -21.0, "temp": -11.0, "pres": 1021.0,
+      "wind": {"direction": "NW", "cum_speed": 1.79},
+      "snow_hours": 0, "rain_hours": 0
+    }
+  },
+  {
+    "timestamp": {"$date": "2010-01-02T00:00:00Z"},
+    "calendar": {"year": 2010, "month": 1, "day": 2, "hour": 0, "day_of_week": 5},
+    "air_quality": {"station": "US Embassy Beijing", "pm25": 129},
+    "weather": {
+      "station": "Beijing Capital International Airport",
+      "dewp": -16.0, "temp": -4.0, "pres": 1020.0,
+      "wind": {"direction": "SE", "cum_speed": 1.79},
+      "snow_hours": 0, "rain_hours": 0
+    }
+  }
+]
