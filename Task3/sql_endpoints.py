@@ -12,7 +12,7 @@ from common import utc_naive, validate_date_range
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg2://postgres:postgres@localhost:5432/beijing_air",
+    "postgresql+psycopg2://postgres:postgres@localhost:5433/beijing_air",
 )
 engine = create_engine(DATABASE_URL)
 router = APIRouter(prefix="/sql", tags=["SQL"])
