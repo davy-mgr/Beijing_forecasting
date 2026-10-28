@@ -1,19 +1,3 @@
-"""Task 4 - forecast next-hour PM2.5 using data fetched from the Task 3 API.
-
-Pipeline: fetch recent hourly records from the API -> rebuild the Task 1 features
--> load the saved Task 1 model -> predict PM2.5 for the next hour.
-
-Run from the repository root with the API running
-(uvicorn api:app --app-dir Task3 --reload):
-
-    python Task4/predict.py --source sql
-    python Task4/predict.py --source mongo
-    python Task4/predict.py --source sql --as-of 2014-06-15T12:00:00
-    python Task4/predict.py --source csv          # offline test, no API needed
-
---as-of is the last observed hour. The forecast is for the hour after it. If that
-next hour exists in the data, the script also prints the actual value and the error.
-"""
 from __future__ import annotations
 
 import argparse
@@ -31,18 +15,15 @@ DEFAULT_MODEL = ROOT / "Task1" / "results" / "beijing_pm25_model.joblib"
 DEFAULT_CSV = ROOT / "Task1" / "results" / "beijing_records.csv"
 DEFAULT_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
-# Same weather columns, in the same order, as the Task 1 notebook.
 WEATHER = ["TEMP", "DEWP", "PRES", "Iws"]
-# The longest feature needs 168 hours; the extra 24 cover the 3-hour forward fill.
 HISTORY_HOURS = 192
 ONE_HOUR = pd.Timedelta(hours=1)
 
 
 class ForecastError(Exception):
-    """A problem the user can fix (API down, too little data, bad file...)."""
+    pass
 
 
-# --------------------------------------------------------------------------- fetch
 def _api_get(base_url: str, path: str, params: dict | None = None):
     url = f"{base_url.rstrip('/')}{path}"
     try:
@@ -54,7 +35,6 @@ def _api_get(base_url: str, path: str, params: dict | None = None):
 
 
 def _tidy(frame: pd.DataFrame) -> pd.DataFrame:
-    """Common cleanup: naive datetime index, numeric columns, sorted, no duplicates."""
     frame = frame.copy()
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True).dt.tz_localize(None)
     for column in ["pm2.5"] + WEATHER:
@@ -64,7 +44,6 @@ def _tidy(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _from_sql(rows: list[dict]) -> pd.DataFrame:
-    """/sql/readings rows are flat: ts, pm25, dewp, temp, pres, cum_wind_speed, ..."""
     renamed = pd.DataFrame(rows).rename(columns={
         "ts": "timestamp", "pm25": "pm2.5", "dewp": "DEWP", "temp": "TEMP",
         "pres": "PRES", "cum_wind_speed": "Iws"})
@@ -72,7 +51,6 @@ def _from_sql(rows: list[dict]) -> pd.DataFrame:
 
 
 def _from_mongo(docs: list[dict]) -> pd.DataFrame:
-    """/mongo/readings documents are nested (air_quality, weather.wind, ...)."""
     flat = [{
         "timestamp": d["timestamp"],
         "pm2.5": d["air_quality"]["pm25"],
@@ -104,7 +82,6 @@ def latest_timestamp(source: str, base_url: str, csv_path: Path) -> pd.Timestamp
 
 def fetch_range(source: str, base_url: str, start: pd.Timestamp, end: pd.Timestamp,
                 csv_path: Path) -> pd.DataFrame:
-    """Records with start <= timestamp < end (the API uses the same convention)."""
     if source == "csv":
         frame = _from_csv(csv_path)
         return frame.loc[(frame.index >= start) & (frame.index < end)]
@@ -118,16 +95,8 @@ def fetch_range(source: str, base_url: str, start: pd.Timestamp, end: pd.Timesta
         raise ForecastError(f"Unexpected API response shape, missing field {exc}") from exc
 
 
-# ------------------------------------------------------------------- preprocessing
 def build_feature_row(history: pd.DataFrame, features: list[str]) -> pd.DataFrame:
-    """Rebuild the Task 1 features for the hour AFTER the last row of `history`.
-
-    Mirrors the notebook exactly: PM2.5 forward-filled for at most 3 hours, lags 1/6/24,
-    24h and 168h rolling means of the previous hours, weather from the previous hour,
-    and calendar features of the hour being predicted.
-    """
     target_time = history.index.max() + ONE_HOUR
-    # Reindex to a complete hourly range so that shift() always means "N hours earlier".
     hourly = pd.date_range(history.index.min(), target_time, freq="h")
     df = history.reindex(hourly)
 
@@ -156,7 +125,6 @@ def build_feature_row(history: pd.DataFrame, features: list[str]) -> pd.DataFram
     return row
 
 
-# ------------------------------------------------------------------------- forecast
 def forecast(args: argparse.Namespace) -> None:
     if not Path(args.model).exists():
         raise ForecastError(f"Model file not found: {args.model}")
