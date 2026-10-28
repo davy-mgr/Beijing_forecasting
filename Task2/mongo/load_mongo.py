@@ -1,12 +1,3 @@
-"""Load the Beijing PM2.5 CSV into MongoDB (one document per hour).
-
-Usage:
-    python mongo/load_mongo.py data/PRSA_data_2010.1.1-2014.12.31.csv
-
-Timestamps are stored exactly as in the CSV (naive datetimes, which pymongo
-saves as UTC), so SQL and MongoDB date-range queries return identical rows.
-Re-running drops and rebuilds the collection.
-"""
 import os
 import sys
 

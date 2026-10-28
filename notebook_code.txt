@@ -1,0 +1,239 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("/content/PRSA_data_2010.1.1-2014.12.31.csv")
+df.head()
+
+# ---- cell ----
+df.info()
+
+# ---- cell ----
+df.shape, df.columns.tolist()
+
+# ---- cell ----
+df.isna().sum().sort_values(ascending=False)
+
+# ---- cell ----
+df[["year", "month", "day", "hour"]].head()
+
+# ---- cell ----
+df["datetime"] = pd.to_datetime(df[["year", "month", "day", "hour"]])
+df = df.sort_values("datetime").set_index("datetime")
+df.head()
+
+# ---- cell ----
+print("First reading:", df.index.min())
+print("Last reading:", df.index.max())
+print("Number of rows:", len(df))
+print("Time intervals:", df.index.to_series().diff().value_counts().head())
+print("Duplicate hours:", df.index.duplicated().sum())
+print("Missing hours:", len(pd.date_range(df.index.min(), df.index.max(), freq="h").difference(df.index)))
+
+# ---- cell ----
+df.loc["2012-01-01":"2012-01-02", ["pm2.5", "TEMP", "PRES", "Iws"]].head(12)
+
+# ---- cell ----
+missing = df["pm2.5"].isna()
+print("Missing PM2.5:", missing.sum())
+print("Missing share: {:.2f}%".format(missing.mean() * 100))
+print("Other missing values:", df.drop(columns="pm2.5").isna().sum().sum())
+print("Missing readings by year:")
+print(missing.groupby(df.index.year).sum())
+
+# ---- cell ----
+gaps = missing.ne(missing.shift()).cumsum()
+gap_sizes = missing.groupby(gaps).sum()
+print("Longest missing run (hours):", gap_sizes.max())
+print("Missing runs longer than 3 hours:", (gap_sizes > 3).sum())
+
+# ---- cell ----
+df["pm_history"] = df["pm2.5"].ffill(limit=3)
+print("Missing historical inputs after limited filling:", df["pm_history"].isna().sum())
+print("Original target still missing:", df["pm2.5"].isna().sum())
+
+# ---- cell ----
+numeric = ["pm2.5", "DEWP", "TEMP", "PRES", "Iws", "Is", "Ir"]
+df[numeric].describe().round(2)
+
+# ---- cell ----
+fig, axes = plt.subplots(3, 3, figsize=(15, 11))
+axes = axes.flatten()
+
+for i, col in enumerate(numeric):
+    axes[i].hist(df[col].dropna(), bins=30, edgecolor="white")
+    axes[i].set_title(col)
+    axes[i].set_xlabel(col)
+    axes[i].set_ylabel("Frequency (log scale)")
+    axes[i].set_yscale("log")
+    axes[i].grid(axis="y", alpha=0.3)
+
+for ax in axes[len(numeric):]:
+    ax.remove()
+
+plt.suptitle("Distribution of Pollution and Weather Measurements", fontsize=15)
+plt.tight_layout()
+plt.show()
+
+# ---- cell ----
+monthly = df["pm2.5"].resample("MS").mean()
+monthly.plot(figsize=(11, 3), title="Average PM2.5 by month")
+plt.ylabel("PM2.5 (µg/m³)")
+plt.xlabel("Month")
+plt.tight_layout()
+plt.show()
+print("Average in 2010:", round(df.loc["2010", "pm2.5"].mean(), 1))
+print("Average in 2014:", round(df.loc["2014", "pm2.5"].mean(), 1))
+
+# ---- cell ----
+weather = ["TEMP", "DEWP", "PRES", "Iws"]
+
+correlation = df[["pm2.5"] + weather].corr()["pm2.5"].drop("pm2.5")
+
+correlation.plot(kind="bar", figsize=(8, 4))
+
+plt.title("Correlation Between Weather Conditions and PM2.5")
+plt.xlabel("Weather Variables")
+plt.ylabel("Pearson Correlation")
+plt.axhline(0, color="black", linewidth=0.8)
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.show()
+
+print(correlation.round(3))
+
+# ---- cell ----
+lags = [1, 3, 6, 12, 24, 48]
+lag_corr = pd.Series({h: df["pm2.5"].corr(df["pm2.5"].shift(h)) for h in lags})
+lag_corr.plot(marker="o", figsize=(8, 3), title="PM2.5 correlation with previous hours")
+plt.xlabel("Hours earlier")
+plt.ylabel("Correlation")
+plt.tight_layout()
+plt.show()
+print(lag_corr.round(3))
+
+# ---- cell ----
+daily_avg = df["pm2.5"].rolling(24).mean()
+weekly_avg = df["pm2.5"].rolling(168).mean()
+
+plt.figure(figsize=(12, 4))
+plt.plot(df["pm2.5"].loc["2014-01"], alpha=0.3, label="Hourly PM2.5")
+plt.plot(daily_avg.loc["2014-01"], label="24-hour average")
+plt.plot(weekly_avg.loc["2014-01"], label="7-day average")
+
+plt.title("PM2.5 Moving Averages (January 2014)")
+plt.xlabel("Date")
+plt.ylabel("PM2.5 (µg/m³)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ---- cell ----
+by_month = df.groupby(df.index.month)["pm2.5"].mean()
+
+by_month.plot(kind="bar", figsize=(10, 4), edgecolor="white")
+
+plt.title("Average PM2.5 Concentration by Month")
+plt.xlabel("Month")
+plt.ylabel("Average PM2.5 (µg/m³)")
+plt.xticks(range(12), ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], rotation=0)
+plt.tight_layout()
+plt.show()
+
+print("Highest average month:", by_month.idxmax(), "|", round(by_month.max(), 1))
+print("Lowest average month:", by_month.idxmin(), "|", round(by_month.min(), 1))
+
+# ---- cell ----
+df["pm_lag_1"] = df["pm_history"].shift(1)
+df["pm_lag_6"] = df["pm_history"].shift(6)
+df["pm_lag_24"] = df["pm_history"].shift(24)
+df["pm_avg_24"] = df["pm_history"].shift(1).rolling(24, min_periods=24).mean()
+df["pm_avg_168"] = df["pm_history"].shift(1).rolling(168, min_periods=168).mean()
+for name in weather:
+    df[name + "_previous"] = df[name].shift(1)
+df["hour_of_day"] = df.index.hour
+df["month_of_year"] = df.index.month
+df["day_of_week"] = df.index.dayofweek
+df[["pm2.5", "pm_lag_1", "pm_lag_24", "pm_avg_24"]]
+
+# ---- cell ----
+history_features = ["pm_lag_1", "pm_lag_6", "pm_lag_24", "pm_avg_24", "pm_avg_168"]
+calendar_features = ["hour_of_day", "month_of_year", "day_of_week"]
+weather_features = [name + "_previous" for name in weather]
+all_features = history_features + calendar_features + weather_features
+model_data = df.dropna(subset=["pm2.5"] + all_features).copy()
+train = model_data.loc[:"2012-12-31"]
+valid = model_data.loc["2013"]
+test = model_data.loc["2014"]
+print("Train:", len(train), "Validation:", len(valid), "Test:", len(test))
+
+# ---- cell ----
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+import joblib
+
+def scores(actual, predicted):
+    return round(mean_absolute_error(actual, predicted), 2), round(np.sqrt(mean_squared_error(actual, predicted)), 2)
+
+def fit_ridge(columns, alpha, training):
+    fitted = make_pipeline(StandardScaler(), Ridge(alpha=alpha))
+    fitted.fit(training[columns], training["pm2.5"])
+    return fitted
+
+# ---- cell ----
+experiments = []
+experiments.append({"Experiment": "Previous hour baseline", "Features": "PM2.5 lag 1", "Alpha": "–",
+                    "MAE": scores(valid["pm2.5"], valid["pm_lag_1"])[0],
+                    "RMSE": scores(valid["pm2.5"], valid["pm_lag_1"])[1]})
+
+settings = [("History + calendar", history_features + calendar_features),
+            ("History + calendar + weather", all_features)]
+for label, columns in settings:
+    for alpha in [0.1, 1, 10, 100]:
+        model = fit_ridge(columns, alpha, train)
+        prediction = model.predict(valid[columns])
+        mae, rmse = scores(valid["pm2.5"], prediction)
+        experiments.append({"Experiment": label, "Features": len(columns), "Alpha": alpha,
+                            "MAE": mae, "RMSE": rmse})
+results = pd.DataFrame(experiments).sort_values("RMSE")
+results
+
+# ---- cell ----
+candidates = results[results["Experiment"] != "Previous hour baseline"]
+best = candidates.iloc[0]
+best_features = dict(settings)[best["Experiment"]]
+final_train = pd.concat([train, valid])
+final_model = fit_ridge(best_features, float(best["Alpha"]), final_train)
+predicted = final_model.predict(test[best_features])
+comparison = pd.DataFrame([
+    {"Model": "Previous hour baseline", "MAE": scores(test["pm2.5"], test["pm_lag_1"])[0], "RMSE": scores(test["pm2.5"], test["pm_lag_1"])[1]},
+    {"Model": "Tuned Ridge", "MAE": scores(test["pm2.5"], predicted)[0], "RMSE": scores(test["pm2.5"], predicted)[1]}
+])
+print("Selected experiment:", best["Experiment"], "| alpha:", best["Alpha"])
+comparison
+
+# ---- cell ----
+view = test.iloc[:168].copy()
+view["prediction"] = predicted[:len(view)]
+
+view = view[["pm2.5", "prediction"]].asfreq("h")
+
+view.plot(figsize=(11, 4), title="Actual vs Predicted PM2.5")
+
+plt.xlabel("Date")
+plt.ylabel("PM2.5 (µg/m³)")
+plt.tight_layout()
+plt.show()
+
+# ---- cell ----
+joblib.dump({"model": final_model, "features": best_features, "forecast": "next-hour PM2.5",
+             "lag_hours": [1, 6, 24], "rolling_hours": [24, 168],
+             "weather_from_previous_hour": True}, "/content/beijing_pm25_model.joblib")
+
+# Export only the original observations for the database team.
+original_columns = ["No", "year", "month", "day", "hour", "pm2.5", "DEWP", "TEMP", "PRES", "cbwd", "Iws", "Is", "Ir"]
+df[original_columns].reset_index().to_csv("/content/beijing_records.csv", index=False)
+print("Saved: beijing_pm25_model.joblib and beijing_records.csv")

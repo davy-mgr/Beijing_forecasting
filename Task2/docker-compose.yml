@@ -1,4 +1,3 @@
-# Starts PostgreSQL (schema auto-applied on first boot) and MongoDB locally.
 services:
   postgres:
     image: postgres:16

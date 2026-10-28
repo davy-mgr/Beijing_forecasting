@@ -1,4 +1,3 @@
-"""PostgreSQL CRUD and time-series endpoints."""
 import os
 from datetime import datetime
 from typing import Optional

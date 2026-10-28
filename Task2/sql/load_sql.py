@@ -1,11 +1,3 @@
-"""Load the Beijing PM2.5 CSV into PostgreSQL.
-
-Usage:
-    python sql/load_sql.py data/PRSA_data_2010.1.1-2014.12.31.csv
-
-Run sql/schema.sql first (it also resets the tables, so re-running is safe).
-Raw values are loaded as-is: missing PM2.5 stays NULL.
-"""
 import os
 import sys
 

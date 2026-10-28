@@ -1,5 +1,3 @@
--- Task 2: SQL queries (PostgreSQL). Run in psql and paste the output into the report.
-
 -- Q1. Monthly average PM2.5 and temperature, plus how many hours are missing
 SELECT date_trunc('month', ts)::date          AS month,
        ROUND(AVG(pm25), 1)                    AS avg_pm25,

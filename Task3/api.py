@@ -1,8 +1,3 @@
-"""FastAPI application combining the SQL and MongoDB endpoint modules.
-
-Run from the repository root with:
-    uvicorn api:app --app-dir Task3 --reload
-"""
 import logging
 
 from fastapi import FastAPI
@@ -19,7 +14,6 @@ app.include_router(mongo_router)
 
 @app.get("/", tags=["Home"])
 def root() -> dict[str, str]:
-    """Return API entry points."""
     return {
         "message": "Beijing Air Quality API is running",
         "documentation": "/docs",

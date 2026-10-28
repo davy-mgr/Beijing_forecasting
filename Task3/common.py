@@ -1,4 +1,3 @@
-"""Utilities shared by the SQL and MongoDB endpoint modules."""
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status

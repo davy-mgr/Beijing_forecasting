@@ -1,6 +1,3 @@
-// Task 2: MongoDB queries (run in mongosh: `mongosh beijing_air mongo/queries.js`)
-// db = beijing_air, collection = readings
-
 // Q1. Latest record
 db.readings.find().sort({ timestamp: -1 }).limit(1);
 

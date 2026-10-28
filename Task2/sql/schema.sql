@@ -1,7 +1,3 @@
--- Beijing PM2.5 (UCI #381) - PostgreSQL schema
--- Design choice: the database stores RAW values (missing PM2.5 stays NULL).
--- Imputation happens in the preprocessing pipeline, not in storage.
-
 DROP VIEW  IF EXISTS v_hourly_observations;
 DROP TABLE IF EXISTS weather_readings;
 DROP TABLE IF EXISTS air_quality_readings;
@@ -47,7 +43,6 @@ CREATE TABLE weather_readings (
 CREATE INDEX idx_aq_ts ON air_quality_readings (ts);
 CREATE INDEX idx_wx_ts ON weather_readings (ts);
 
--- Lookup / reference data
 INSERT INTO stations (name, station_type, city) VALUES
     ('US Embassy Beijing', 'air_quality', 'Beijing'),
     ('Beijing Capital International Airport', 'meteorological', 'Beijing');
@@ -58,7 +53,7 @@ INSERT INTO wind_directions (code, description) VALUES
     ('SE', 'South-east'),
     ('cv', 'Calm and variable');
 
--- Convenience view: one row per hour with pollution + weather together
+
 CREATE VIEW v_hourly_observations AS
 SELECT a.ts,
        a.pm25,
