@@ -2,8 +2,6 @@
 
 A time-series pipeline for hourly PM2.5 air pollution in Beijing: exploratory analysis and a forecasting model, SQL and MongoDB databases, a FastAPI service, and a script that fetches recent data from the API and forecasts the next hour.
 
-Group 3, Cohort 3, BSE, African Leadership University. Course: Machine Learning Pipeline, Formative 1.
-
 ## Team
 
 | Member | Task |
