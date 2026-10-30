@@ -19,23 +19,23 @@ router = APIRouter(prefix="/mongo", tags=["MongoDB"])
 
 
 class WindReading(BaseModel):
-    direction: Optional[str]
-    cum_speed: Optional[float]
+    direction: Optional[str] = None
+    cum_speed: Optional[float] = None
 
 
 class AirQualityDocument(BaseModel):
-    station: str
-    pm25: Optional[int]
+    station: str = "US Embassy Beijing"
+    pm25: Optional[int] = None
 
 
 class WeatherDocument(BaseModel):
-    station: str
-    dewp: Optional[float]
-    temp: Optional[float]
-    pres: Optional[float]
-    wind: WindReading
-    snow_hours: Optional[int]
-    rain_hours: Optional[int]
+    station: str = "Beijing Capital International Airport"
+    dewp: Optional[float] = None
+    temp: Optional[float] = None
+    pres: Optional[float] = None
+    wind: WindReading = WindReading()
+    snow_hours: Optional[int] = None
+    rain_hours: Optional[int] = None
 
 
 class CalendarDocument(BaseModel):
@@ -48,7 +48,7 @@ class CalendarDocument(BaseModel):
 
 class MongoReading(BaseModel):
     timestamp: datetime
-    calendar: CalendarDocument
+    calendar: Optional[CalendarDocument] = None
     air_quality: AirQualityDocument
     weather: WeatherDocument
 
@@ -71,24 +71,35 @@ def latest_mongo_reading():
 
 
 @router.get("/readings")
-def mongo_readings_by_date_range(
-    start: datetime = Query(..., description="Inclusive start timestamp"),
-    end: datetime = Query(..., description="Exclusive end timestamp"),
+def mongo_readings(
+    start: Optional[datetime] = Query(None, description="Inclusive start timestamp"),
+    end: Optional[datetime] = Query(None, description="Exclusive end timestamp"),
+    limit: int = Query(100, ge=1, le=1000),
+    skip: int = Query(0, ge=0),
 ):
-    start = utc_naive(start)
-    end = utc_naive(end)
-    validate_date_range(start, end)
-    documents = mongo_collection.find(
-        {"timestamp": {"$gte": start, "$lt": end}},
-        {"_id": False},
-    ).sort("timestamp", ASCENDING)
+    """List readings, optionally filtering by an inclusive/exclusive date range."""
+    query = {}
+    if (start is None) != (end is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide both start and end timestamps, or neither.",
+        )
+    if start is not None and end is not None:
+        start, end = utc_naive(start), utc_naive(end)
+        validate_date_range(start, end)
+        query["timestamp"] = {"$gte": start, "$lt": end}
+    documents = mongo_collection.find(query, {"_id": False}).sort(
+        "timestamp", ASCENDING
+    ).skip(skip).limit(limit)
     return [_mongo_document(document) for document in documents]
-
 
 @router.post("/readings", status_code=status.HTTP_201_CREATED)
 def create_mongo_reading(reading: MongoReading):
-    document = reading.dict()
+    document = reading.model_dump() if hasattr(reading, "model_dump") else reading.dict()
     document["timestamp"] = utc_naive(reading.timestamp)
+    if document.get("calendar") is None:
+        ts = document["timestamp"]
+        document["calendar"] = {"year": ts.year, "month": ts.month, "day": ts.day, "hour": ts.hour, "day_of_week": ts.weekday()}
     try:
         mongo_collection.insert_one(document)
     except DuplicateKeyError as exc:
@@ -116,7 +127,7 @@ def update_mongo_reading(timestamp: datetime, reading: MongoReading):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="The body timestamp must match the timestamp in the URL",
         )
-    document = reading.dict()
+    document = reading.model_dump() if hasattr(reading, "model_dump") else reading.dict()
     document["timestamp"] = timestamp
     result = mongo_collection.replace_one({"timestamp": timestamp}, document)
     if result.matched_count == 0:
