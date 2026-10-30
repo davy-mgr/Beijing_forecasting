@@ -8,7 +8,8 @@
             "driver": "PostgreSQL",
             "name": "postgres",
             "database": "beijing_air",
-            "username": "postgres"
+            "username": "postgres",
+            "password": "postgres"
         }
     ]
 }
